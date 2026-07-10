@@ -40,7 +40,7 @@ config TT_TELEMETRY_PERIODIC
 
 config TT_MSGQUEUE_NUM_MSG_CODES
 	int "Number of message codes"
-	default 200
+	default 202
 	depends on TT_MSGQUEUE
 	help
 	  Size of the message handler table (message code range).
