@@ -12,4 +12,11 @@
 	chosen {
 		zephyr,sram = &ram0;
 	};
+
+	msgqueue_mbox: msgqueue_mbox {
+		compatible = "tenstorrent,msgqueue-mbox";
+		mboxes = <&mbox0 1>;
+		mbox-names = "doorbell";
+		status = "okay";
+	};
 };
