@@ -1277,6 +1277,44 @@ def _read_spi(chip, addr, size):
     return bytes(buf)
 
 
+def _log_tt_flash_view(chips, label):
+    """
+    TEMPORARY DIAGNOSTIC: log the inputs tt-flash groups p300 chips on.
+
+    validate_p300_can_be_flashed() keys on board_id(), which is a fresh
+    PciChip() init, and treats any failure as "not a p300".
+    """
+    from tt_flash.utility import get_board_type
+
+    for chip in chips:
+        iface = chip.get_pci_interface_id()
+        try:
+            board_id = pyluwen.PciChip(pci_interface=iface).board_id()
+            board_id_str = f"{board_id:#x}"
+            board_type = get_board_type(board_id)
+        except BaseException as e:
+            board_id_str = f"<raised: {e}>"
+            board_type = None
+        try:
+            asic_location = chip.get_telemetry().asic_location
+        except BaseException as e:
+            asic_location = f"<telemetry raised: {e}>"
+        try:
+            # GPIO_STRAP_REG_L, tt-flash's asic location fallback
+            strap = (chip.axi_read32(0x80030D20) >> 6) & 0x1
+        except BaseException as e:
+            strap = f"<raised: {e}>"
+        logger.info(
+            "%s: iface=%s board_id=%s board_type=%s asic_location=%s strap_gpio6=%s",
+            label,
+            iface,
+            board_id_str,
+            board_type,
+            asic_location,
+            strap,
+        )
+
+
 def _reset_smc():
     # tt-smi will fail here since it checks for valid telemetry after reset,
     # we still need to run it to trigger the SMC reboot
@@ -1302,6 +1340,7 @@ def test_mcuboot(unlaunched_dut, asic_id, board_name):
     ERASED_BLOCK = bytes([0xFF] * SPI_SECTOR_SIZE)
     wait_arc_boot(asic_id, timeout=15, min_chips=min_chips)
     targets = pyluwen.detect_chips()
+    _log_tt_flash_view(targets, "baseline (healthy card)")
     # First, validate we are running the base image. A good way to check this is
     # to see that telemetry data is available
     for i, chip in enumerate(targets):
@@ -1361,6 +1400,7 @@ def test_mcuboot(unlaunched_dut, asic_id, board_name):
     for chip in targets:
         chip.as_bh().spi_write(ROM_HEADER_ADDR, headers[chip.get_pci_interface_id()])
     # Now, make sure we can flash a good image from recovery mode
+    _log_tt_flash_view(targets, "before tt-flash (both in recovery)")
     del targets
     unlaunched_dut.launch()
 
