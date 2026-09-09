@@ -1315,6 +1315,31 @@ def _log_tt_flash_view(chips, label):
         )
 
 
+def _log_rom_header_diff(chips):
+    """
+    TEMPORARY DIAGNOSTIC: are the two p300 ASICs' boot fs descriptor tables
+    interchangeable? test_mcuboot saves and restores them by list position,
+    which is only safe if they are byte identical.
+    """
+    headers = {
+        chip.get_pci_interface_id(): _read_spi(chip, 0x0, 0x1000) for chip in chips
+    }
+    for iface, header in sorted(headers.items()):
+        logger.info("ROM header iface=%d first 32B: %s", iface, header[:32].hex())
+    if len(headers) != 2:
+        return
+    (iface_a, a), (iface_b, b) = sorted(headers.items())
+    diffs = [off for off in range(len(a)) if a[off] != b[off]]
+    logger.info(
+        "ROM header iface=%d vs iface=%d: identical=%s differing_bytes=%d offsets=%s",
+        iface_a,
+        iface_b,
+        a == b,
+        len(diffs),
+        [hex(off) for off in diffs[:16]],
+    )
+
+
 def _reset_smc():
     # tt-smi will fail here since it checks for valid telemetry after reset,
     # we still need to run it to trigger the SMC reboot
@@ -1341,6 +1366,7 @@ def test_mcuboot(unlaunched_dut, asic_id, board_name):
     wait_arc_boot(asic_id, timeout=15, min_chips=min_chips)
     targets = pyluwen.detect_chips()
     _log_tt_flash_view(targets, "baseline (healthy card)")
+    _log_rom_header_diff(targets)
     # First, validate we are running the base image. A good way to check this is
     # to see that telemetry data is available
     for i, chip in enumerate(targets):
