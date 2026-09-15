@@ -300,6 +300,12 @@ def _prepare_and_launch_dut(
 
     _verify_running_versions(board_name=board_name, asic_id=asic_id)
 
+    time.sleep(1)
+    rescan_pcie()
+    wait_arc_boot(asic_id, timeout=timeout, min_chips=min_chips)
+
+    _verify_running_versions(board_name=board_name, asic_id=asic_id)
+
 
 def _chips_reachable():
     """
@@ -312,7 +318,25 @@ def _chips_reachable():
         chips = pyluwen.detect_chips_fallible(
             local_only=True, continue_on_failure=True, noc_safe=True
         )
-    except BaseException:
+        logger.info(f"_chips_reachable: Detected {len(chips)} chips")
+        for chip in chips:
+            logger.info(
+                f"_chips_reachable: Chip {chip.name} has comms: {chip.have_comms()}"
+            )
+            logger.info(
+                f"_chips_reachable: Chip {chip.name} dram_safe: {chip.dram_safe()}"
+            )
+            logger.info(
+                f"_chips_reachable: Chip {chip.name} eth_safe: {chip.eth_safe()}"
+            )
+            logger.info(
+                f"_chips_reachable: Chip {chip.name} arc_alive: {chip.arc_alive()}"
+            )
+            logger.info(
+                f"_chips_reachable: Chip {chip.name} cpu_safe: {chip.cpu_safe()}"
+            )
+    except BaseException as e:
+        logger.error(f"_chips_reachable: Error while detecting chips: {e}")
         return 0
     return sum(1 for chip in chips if chip.have_comms())
 
@@ -323,6 +347,7 @@ def wait_arc_boot(asic_id, timeout=15, min_chips=None):
     # Attempt to detect the ARC chip for 15 seconds
     timeout = timeout
     while True:
+        _chips_reachable()
         try:
             chips = pyluwen.detect_chips()
             if len(chips) >= needed:
