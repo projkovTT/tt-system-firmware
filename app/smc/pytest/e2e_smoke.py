@@ -300,6 +300,20 @@ def _prepare_and_launch_dut(
 
     _verify_running_versions(board_name=board_name, asic_id=asic_id)
 
+    chip = pyluwen.detect_chips_fallible()[asic_id]
+
+    logger.info(
+        f"_prepare_and_launch_dut: Chip {asic_id} has comms: {chip.have_comms()}"
+    )
+    logger.info(
+        f"_prepare_and_launch_dut: Chip {asic_id} dram_safe: {chip.dram_safe()}"
+    )
+    logger.info(f"_prepare_and_launch_dut: Chip {asic_id} eth_safe: {chip.eth_safe()}")
+    logger.info(
+        f"_prepare_and_launch_dut: Chip {asic_id} arc_alive: {chip.arc_alive()}"
+    )
+    logger.info(f"_prepare_and_launch_dut: Chip {asic_id} cpu_safe: {chip.cpu_safe()}")
+
 
 def _chips_reachable():
     """
@@ -312,7 +326,17 @@ def _chips_reachable():
         chips = pyluwen.detect_chips_fallible(
             local_only=True, continue_on_failure=True, noc_safe=True
         )
-    except BaseException:
+        logger.info(f"_chips_reachable: Detected {len(chips)} chips")
+        for chip, index in zip(chips, range(len(chips))):
+            logger.info(
+                f"_chips_reachable: Chip {index} has comms: {chip.have_comms()}"
+            )
+            logger.info(f"_chips_reachable: Chip {index} dram_safe: {chip.dram_safe()}")
+            logger.info(f"_chips_reachable: Chip {index} eth_safe: {chip.eth_safe()}")
+            logger.info(f"_chips_reachable: Chip {index} arc_alive: {chip.arc_alive()}")
+            logger.info(f"_chips_reachable: Chip {index} cpu_safe: {chip.cpu_safe()}")
+    except BaseException as e:
+        logger.error(f"_chips_reachable: Error while detecting chips: {e}")
         return 0
     return sum(1 for chip in chips if chip.have_comms())
 
@@ -323,6 +347,7 @@ def wait_arc_boot(asic_id, timeout=15, min_chips=None):
     # Attempt to detect the ARC chip for 15 seconds
     timeout = timeout
     while True:
+        _chips_reachable()
         try:
             chips = pyluwen.detect_chips()
             if len(chips) >= needed:
@@ -872,8 +897,7 @@ def arc_watchdog_test(asic_id):
     # Delay a bit, then rescan PCIe
     time.sleep(1.0)
     logger.info("Rescanning PCIe and waiting for ARC to boot after delay")
-    rescan_pcie()
-    arc_chip = pyluwen.detect_chips()[asic_id]
+    arc_chip = wait_arc_boot(asic_id)
     logger.info("Reading ARC hang register after delay")
     hang_pc = arc_chip.axi_read32(ARC_HANG_PC_REG_ADDR)
     if hang_pc == 0:
