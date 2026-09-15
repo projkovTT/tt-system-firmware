@@ -871,10 +871,9 @@ def arc_watchdog_test(asic_id):
         logger.error(f"Base exception error while detecting chips: {e}")
     # Delay a bit, then rescan PCIe
     time.sleep(1.0)
-    logger.info("Waiting for ARC to boot after delay")
-    arc_chip = wait_arc_boot(asic_id)
-    # rescan_pcie()
-    # arc_chip = pyluwen.detect_chips()[asic_id]
+    logger.info("Rescanning PCIe and waiting for ARC to boot after delay")
+    rescan_pcie()
+    arc_chip = pyluwen.detect_chips()[asic_id]
     logger.info("Reading ARC hang register after delay")
     hang_pc = arc_chip.axi_read32(ARC_HANG_PC_REG_ADDR)
     if hang_pc == 0:

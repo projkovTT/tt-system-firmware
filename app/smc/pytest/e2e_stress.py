@@ -24,7 +24,6 @@ from e2e_smoke import (
     temperature_sensors_test,
     power_state_toggle_test,
     _logical_tensix_x_coords,
-    wait_arc_boot,
 )
 
 # Needed to keep ruff from complaining about this "unused import"
@@ -101,10 +100,6 @@ def test_arc_watchdog(arc_chip_dut, asic_id):
     total_tries = min(MAX_TEST_ITERATIONS, 100)
     fail_count = 0
     failure_fail_count = 0
-
-    chip = wait_arc_boot(asic_id)
-    logger.info("ARC booted successfully for watchdog test!")
-    del chip
 
     for i in range(total_tries):
         if i % 10 == 0:
