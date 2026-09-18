@@ -339,7 +339,7 @@ def wait_arc_boot(asic_id, timeout=15, min_chips=None):
             # sometimes throws rust exceptions when the chip is resetting.
             # log them with a higher severity so we can track them
             logger.error(f"Base exception error while detecting chips: {e}")
-        time.sleep(0.5)
+        time.sleep(2)
         if time.time() - start > timeout:
             # Dump the SMC state for debugging
             smc_test_recovery.recover_smc(asic_id)
@@ -348,6 +348,7 @@ def wait_arc_boot(asic_id, timeout=15, min_chips=None):
         # Removing a chip that is merely mid-boot drops the one function we
         # already have, and it may not come back.
         rescan_pcie(remove=_chips_reachable() == 0)
+        time.sleep(1)
     chip = chips[asic_id]
     try:
         status = chip.axi_read32(ARC_STATUS)
