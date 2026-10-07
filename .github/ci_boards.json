@@ -43,15 +43,6 @@
       "kmd_build": "2.11.0"
     },
     {
-      "board": "loudbox",
-      "metal-image": "ghcr.io/tenstorrent/tt-metal/upstream-tests-bh-loudbox:v0.78.0",
-      "metal-target": "blackhole_loudbox",
-      "arch-name": "blackhole",
-      "metal-options": "--cap-add SYS_MODULE --device /dev/tenstorrent --user=root",
-      "kmd_build": "2.11.0"
-    },
-
-    {
       "board": "bh-galaxy-revc",
       "metal-image": "ghcr.io/tenstorrent/tt-metal/upstream-tests-bh-glx:v0.78.0",
       "metal-target": "blackhole_glx",
