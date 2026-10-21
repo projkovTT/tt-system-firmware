@@ -494,12 +494,23 @@ typedef union {
  */
 #define TAG_FLASH_JEDEC_ID 80
 
+/**
+ * @brief Per-controller GDDR PCAL pending errors.
+ *
+ * Two bits per GDDR controller, controller 0 in the least significant bits:
+ * - bit 0 of the pair: PHY channel 0 multiple_pcal_pend_err, latched
+ * - bit 1 of the pair: PHY channel 1 multiple_pcal_pend_err, latched
+ *
+ * The pair is 0 when that controller's MRISC telemetry table is older than v4.
+ */
+#define TAG_GDDR_PCAL_PENDING 81
+
 /** @} */ /* end of telemetry_tag group */
 
 /* Not a real tag, signifies the last tag in the list.
  * MUST be incremented if new tags are defined.
  */
-#define TAG_COUNT 81
+#define TAG_COUNT 82
 
 /* Telemetry tags are at offset `tag` in the telemetry buffer */
 #define TELEM_OFFSET(tag) (tag)

@@ -183,6 +183,7 @@ static struct telemetry_table telemetry_table = {
 		[73] = {TAG_FW_CAPABILITIES_0, TELEM_OFFSET(TAG_FW_CAPABILITIES_0)},
 		[74] = {TAG_FW_ACTIVE_CONFIG_0, TELEM_OFFSET(TAG_FW_ACTIVE_CONFIG_0)},
 		[75] = {TAG_FLASH_JEDEC_ID, TELEM_OFFSET(TAG_FLASH_JEDEC_ID)},
+		[76] = {TAG_GDDR_PCAL_PENDING, TELEM_OFFSET(TAG_GDDR_PCAL_PENDING)},
 	},
 };
 /* clang-format on */
@@ -345,6 +346,7 @@ static void UpdateGddrTelemetry(void)
 	uint32_t corr_errs[NUM_GDDR / 2] = {0};
 	uint32_t uncorr_errs = 0;
 	uint32_t status = 0;
+	uint32_t pcal_pending = 0;
 	uint32_t speed = telemetry[TAG_GDDR_SPEED];
 
 	for (int i = 0; i < NUM_GDDR; i++) {
@@ -380,6 +382,8 @@ static void UpdateGddrTelemetry(void)
 			 */
 			uncorr_errs |= (gddr_telemetry.uncorr_edc_rd_error << (i * 2)) |
 				       (gddr_telemetry.uncorr_edc_wr_error << (i * 2 + 1));
+			/* Two bits per controller: channel 0, then channel 1. */
+			pcal_pending |= (gddr_telemetry.pcal_pending & 0x3) << (i * 2);
 			speed = gddr_telemetry.dram_speed;
 		}
 	}
@@ -398,6 +402,7 @@ static void UpdateGddrTelemetry(void)
 	telemetry[TAG_GDDR_UNCORR_ERRS] = uncorr_errs;
 	telemetry[TAG_GDDR_STATUS] = status;
 	telemetry[TAG_GDDR_SPEED] = speed;
+	telemetry[TAG_GDDR_PCAL_PENDING] = pcal_pending;
 }
 
 /* Pack per-instance GDDR die temperatures into the host telemetry wire format. Each word holds

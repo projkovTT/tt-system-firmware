@@ -16,7 +16,7 @@
  */
 #include <stdint.h>
 
-#define GDDR_TELEMETRY_TABLE_T_VERSION (0x00000003)
+#define GDDR_TELEMETRY_TABLE_T_VERSION (0x00000004)
 
 typedef struct {
 	uint32_t telemetry_table_version;
@@ -50,39 +50,21 @@ typedef struct {
 	uint8_t ca_termination_offset;
 	/* Applied CA termination offset (MR3, 0-3). */
 	uint8_t ca_settings_source;
-	/*
-	 * Where the applied CA settings came from. 0 = FW default LUT,
-	 * 1 = params table (SMC-seeded), 2 = runtime CA sweep.
-	 */
+	/* CA source. 0 = FW LUT, 1 = params table, 2 = runtime sweep. */
 	uint8_t ca_settings_changed;
-	/*
-	 * 1 = Applied CA settings differ from the seeded/default values
-	 * (SMC should latch them to flash).
-	 */
+	/* 1 = applied CA settings differ from the seeded values. */
 	uint8_t ca_margin_check_status;
 	/* Post-training CA margin check result. 0 = not run, 1 = pass, 2 = fail. */
 	uint8_t ca_sweep_status;
-	/*
-	 * Runtime CA sweep result. 0 = not run, 1 = completed with passing window,
-	 * 2 = completed with no passing window.
-	 */
+	/* CA sweep. 0 = not run, 1 = pass window, 2 = no window. */
 	int8_t ca_window_min_offset;
-	/*
-	 * Lowest passing CA VREFC offset (signed) observed by the margin check or sweep.
-	 * 0x7F = invalid/not measured.
-	 */
+	/* Lowest passing CA VREFC offset. 0x7F = not measured. */
 	int8_t ca_window_max_offset;
-	/*
-	 * Highest passing CA VREFC offset (signed) observed by the margin check or sweep.
-	 * 0x7F = invalid/not measured.
-	 */
+	/* Highest passing CA VREFC offset. 0x7F = not measured. */
 	uint8_t ca_ocd_pulldown_offset;
-	/*
-	 * Applied CA driver strength as 3-bit OCD pulldown offset code
-	 * (0-3 = 0..+3, 4-7 = -4..-1).
-	 */
-	uint8_t ca_reserved0;
-	/* Reserved, reads 0. */
+	/* CA OCD pulldown code. 0-3 = 0..+3, 4-7 = -4..-1. */
+	uint8_t pcal_pending;
+	/* Latched PCAL pending. Bit 0 = ch0, bit 1 = ch1. 0 before v4. */
 	uint8_t ca_reserved1;
 	/* Reserved, reads 0. */
 	uint8_t ca_reserved2;

@@ -36,27 +36,13 @@ typedef struct {
 	uint32_t controller_id;
 	/* ID to uniquely identify each controller (0-7) */
 	uint32_t ca_vrefc_offset;
-	/*
-	 * Per-controller CA VREFC offset as 4-bit two's-complement MR10 OP[3:0] code.
-	 * Used only when feature_bits.ca_settings_valid is 1. Patched at load time by the SMC.
-	 */
+	/* CA VREFC offset, MR10 OP[3:0]. Used when ca_settings_valid is 1. */
 	uint32_t ca_termination_offset;
-	/*
-	 * Per-controller CA termination offset (MR3, 0-3).
-	 * Used only when feature_bits.ca_settings_valid is 1. Patched at load time by the SMC.
-	 */
+	/* CA termination offset (MR3, 0-3). Used when ca_settings_valid is 1. */
 	uint32_t ca_margin_check_vref_steps;
-	/*
-	 * Number of VREFC offset steps (N) to probe at +/-N around nominal during the
-	 * post-training CA margin check. Valid range 1-7.
-	 */
+	/* VREFC steps (N) probed at +/-N around nominal. Range 1-7. */
 	uint32_t ca_ocd_pulldown_offset;
-	/*
-	 * Per-controller CA driver strength as 3-bit OCD pulldown offset code
-	 * (0-3 = 0..+3, 4-7 = -4..-1). Used only when feature_bits.ca_settings_valid is 1
-	 * and the value is <= 7; 0xFF (default) = not seeded, keep the FW board-type default.
-	 * Patched at load time by the SMC.
-	 */
+	/* CA OCD pulldown code. 0-3 = 0..+3, 4-7 = -4..-1. 0xFF = unset. */
 } gddr_params_table_t;
 
 #endif
