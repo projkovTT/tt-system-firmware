@@ -207,6 +207,11 @@ int read_gddr_telemetry_table(uint8_t gddr_inst, gddr_telemetry_table_t *gddr_te
 		memset((uint8_t *)gddr_telemetry + v3_start, 0, sizeof(*gddr_telemetry) - v3_start);
 	}
 
+	/* v3 publishes the byte as reserved. Only v4 reports PCAL pending. */
+	if (gddr_telemetry->telemetry_table_version < 4) {
+		gddr_telemetry->pcal_pending = 0;
+	}
+
 	return 0;
 }
 

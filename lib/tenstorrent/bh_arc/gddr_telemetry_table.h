@@ -16,7 +16,7 @@
  */
 #include <stdint.h>
 
-#define GDDR_TELEMETRY_TABLE_T_VERSION (0x00000003)
+#define GDDR_TELEMETRY_TABLE_T_VERSION (0x00000004)
 
 typedef struct {
 	uint32_t telemetry_table_version;
@@ -81,8 +81,11 @@ typedef struct {
 	 * Applied CA driver strength as 3-bit OCD pulldown offset code
 	 * (0-3 = 0..+3, 4-7 = -4..-1).
 	 */
-	uint8_t ca_reserved0;
-	/* Reserved, reads 0. */
+	uint8_t pcal_pending;
+	/*
+	 * Latched PHY PCAL pending error. Bit 0 = channel 0, bit 1 = channel 1.
+	 * Stays set once observed. 0 when the MRISC telemetry table is older than v4.
+	 */
 	uint8_t ca_reserved1;
 	/* Reserved, reads 0. */
 	uint8_t ca_reserved2;
