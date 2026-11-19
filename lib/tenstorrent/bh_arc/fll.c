@@ -162,7 +162,7 @@ static uint8_t fll_droop_get(const struct fll_droop_rqst *rqst, struct response 
 	int err = fll_check_read_index(rqst->arg0);
 
 	if (err != 0) {
-		return err;
+		return (uint8_t)err;
 	}
 
 	response->data[1] = ReadReg(FLL_CNTL_REG_ADDR(rqst->arg0));
@@ -176,7 +176,7 @@ static uint8_t fll_droop_dump(const struct fll_droop_rqst *rqst, struct response
 	uint32_t start = rqst->arg0;
 
 	if (start >= ARRAY_SIZE(fll_cntl_implemented)) {
-		return -EINVAL;
+		return (uint8_t)-EINVAL;
 	}
 
 	for (uint32_t i = 0; i < FLL_DUMP_MAX_WORDS; i++) {
@@ -201,7 +201,7 @@ static uint8_t fll_droop_set(const struct fll_droop_rqst *rqst, struct response 
 	uint32_t new_val;
 
 	if (err != 0) {
-		return err;
+		return (uint8_t)err;
 	}
 
 	addr = FLL_CNTL_REG_ADDR(rqst->arg0);
@@ -230,7 +230,7 @@ static uint8_t fll_droop_pulse(const struct fll_droop_rqst *rqst, struct respons
 	uint32_t set9 = 0;
 
 	if (triggers == 0 || (triggers & ~(uint32_t)FLL_TRIGGER_ALL) != 0) {
-		return -EINVAL;
+		return (uint8_t)-EINVAL;
 	}
 
 	if (cycles == 0) {
@@ -304,7 +304,7 @@ static uint8_t fll_droop_ro_count(const struct fll_droop_rqst *rqst, struct resp
 
 	if ((cntl9 & FLL_CNTL_9_DEBUG_DATA_MODE) != 0) {
 		/* Not the 16-bit packing this unpack assumes. */
-		return -ENOTSUP;
+		return (uint8_t)-ENOTSUP;
 	}
 
 	reads = MIN(reads, FLL_RO_MAX_READS);
@@ -391,7 +391,7 @@ static uint8_t fll_droop_handler(const union request *request, struct response *
 	case FLL_DROOP_OP_SAMPLE_NOMINAL:
 		return fll_droop_sample_nominal(response);
 	default:
-		return -EINVAL;
+		return (uint8_t)-EINVAL;
 	}
 }
 REGISTER_MESSAGE(TT_SMC_MSG_FLL_DROOP, fll_droop_handler);

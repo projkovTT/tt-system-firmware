@@ -163,13 +163,13 @@ static uint8_t clock_wave_apply(const struct clock_wave_rqst *rqst, struct respo
 	uint32_t cntl;
 
 	if (rqst->flags & ~(uint32_t)(CLOCK_WAVE_FLAG_SKIP_MODES | CLOCK_WAVE_FLAG_SKIP_SCHEME)) {
-		return -EINVAL;
+		return (uint8_t)-EINVAL;
 	}
 
 	if (write_scheme) {
 		if (rqst->scheme != TT_CLK_SCHEME_ZERO_SKEW &&
 		    rqst->scheme != TT_CLK_SCHEME_CLOCK_WAVE) {
-			return -EINVAL;
+			return (uint8_t)-EINVAL;
 		}
 		cntl = clk_scheme_to_cntl(rqst->scheme);
 	} else {
@@ -182,7 +182,7 @@ static uint8_t clock_wave_apply(const struct clock_wave_rqst *rqst, struct respo
 		for (unsigned int i = 0; i < CLOCK_WAVE_CONTROL_MODE_COUNT; i++) {
 			if (rqst->mode[i] & ~CLOCK_WAVE_CONTROL_MODE_VALID(i)) {
 				/* Reserved bits, or rows that MODE_3 does not carry. */
-				return -EINVAL;
+				return (uint8_t)-EINVAL;
 			}
 			mode_regs[i] = rqst->mode[i];
 			mode_bits_set |= rqst->mode[i] & CLOCK_WAVE_CONTROL_MODE_MODE_BITS(i);
@@ -236,7 +236,7 @@ static uint8_t clock_wave_handler(const union request *request, struct response 
 	case CLOCK_WAVE_OP_APPLY:
 		return clock_wave_apply(rqst, response);
 	default:
-		return -EINVAL;
+		return (uint8_t)-EINVAL;
 	}
 }
 REGISTER_MESSAGE(TT_SMC_MSG_CLOCK_WAVE, clock_wave_handler);
