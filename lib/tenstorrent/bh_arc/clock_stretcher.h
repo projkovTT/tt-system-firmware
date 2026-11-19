@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 
+#include <zephyr/kernel.h>
+
 /**
  * @brief Re-point the FLL droop detector's nominal RO count to a VCORE operating
  *        point using the calibrated fit
@@ -19,6 +21,16 @@
  *
  * @param vcore_mv Target core voltage in millivolts.
  */
+#ifdef CONFIG_TT_BH_ARC_CLOCK_STRETCHER
 void clock_stretcher_repoint(uint32_t vcore_mv);
+#else
+/* clock_stretcher.c is not built without the feature; voltage.c calls this on
+ * every VCORE change regardless.
+ */
+static inline void clock_stretcher_repoint(uint32_t vcore_mv)
+{
+	ARG_UNUSED(vcore_mv);
+}
+#endif
 
 #endif /* TENSTORRENT_BH_ARC_CLOCK_STRETCHER_H_ */

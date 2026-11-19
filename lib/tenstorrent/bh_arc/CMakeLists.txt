@@ -70,7 +70,6 @@ if(NOT CONFIG_TT_SMC_RECOVERY)
   zephyr_library_sources(
     aiclk_ppm.c
     bh_power.c
-    clock_stretcher.c
     clock_wave.c
     counter.c
     dvfs.c
@@ -94,6 +93,9 @@ if(NOT CONFIG_TT_SMC_RECOVERY)
     voltage.c
   )
 
+  # Needs the spi_flash devicetree node for its calibration partition, which
+  # only the real boards have, so it cannot be built unconditionally.
+  zephyr_library_sources_ifdef(CONFIG_TT_BH_ARC_CLOCK_STRETCHER clock_stretcher.c)
   zephyr_library_sources_ifdef(CONFIG_BH_FWTABLE chip_info_fwtable.c)
   zephyr_library_sources_ifdef(CONFIG_TT_SHELL tt_shell.c)
   zephyr_library_add_dependencies(nanopb_generated_headers)
