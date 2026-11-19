@@ -150,6 +150,33 @@ test worth running.
    ``FLL_CNTL_5.dd_fw_nominal_vdd``). Setting ``dd_enable`` against a stale
    nominal will either stretch permanently or never stretch at all.
 
+Interaction with the clock stretcher calibration
+================================================
+
+``CONFIG_TT_BH_ARC_CLOCK_STRETCHER`` (default ``n``) enables a second owner of
+these registers: ``lib/tenstorrent/bh_arc/clock_stretcher.c`` calibrates the
+detector's nominal RO count against VCORE at boot, persists the fit to the
+``clkstr`` SPIROM partition, and exposes it through ``TT_SMC_MSG_GET_CLK_STRETCHER_FIT``
+(0xC8) and ``TT_SMC_MSG_RECALIBRATE_CLK_STRETCHER`` (0xC9).
+
+With it **off**, which is the default, nothing in firmware touches the FLL and
+``TT_SMC_MSG_FLL_DROOP`` has sole ownership. Every field reads back zero on a
+stock part.
+
+With it **on**, two things will overwrite values set through 0x24:
+
+* ``apply_static_config()`` programs FLL_CNTL_0-5, 8 and 9 during init.
+* ``clock_stretcher_repoint()`` runs from ``VoltageChange()`` on **every** DVFS
+  voltage step. It rewrites ``FLL_CNTL_5.dd_fw_nominal_vdd`` and forces
+  ``FLL_CNTL_3`` to ``dd_use_fw_nominal_vdd=1``, ``dd_use_nominal_vdd=0``,
+  ``dd_enable=1``.
+
+So for a free-running experiment either leave the Kconfig off, or pin the
+operating point first with ``TT_SMC_MSG_FORCE_VDD`` (0x39) and
+``TT_SMC_MSG_FORCE_AICLK`` (0x33) so no voltage change fires. ``SAMPLE_NOMINAL``
+and a hand-set ``dd_fw_nominal_vdd`` are the two ways to own the nominal
+yourself; see the note above on why it has to track VCORE.
+
 Building and flashing
 =====================
 
@@ -162,7 +189,8 @@ Standard SMC build; see :ref:`ttzp_getting_started` for workspace setup.
 
 Replace ``p300a`` with the board revision under test. No Kconfig option gates
 either message: both handlers are in ``bh_arc_mission`` and are present in any
-non-recovery image.
+non-recovery image. The boot-time calibration above is separate and is off
+unless ``CONFIG_TT_BH_ARC_CLOCK_STRETCHER=y`` is added to the build.
 
 Driving it
 ==========
