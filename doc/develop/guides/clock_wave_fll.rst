@@ -247,13 +247,32 @@ words, starting with word 0, so on the bench::
    tt msg 0x324 1 100           # force_droop_detect for 100 REFCLK cycles
    tt msg 0x424                 # averaged RO count
 
-From the host, use a message-queue utility that sends the full eight words
-(``pyluwen``'s ``arc_msg_buf`` or the t6py equivalent); the two-argument
-``arc_msg`` form only reaches words 1 and 2.
+From the host, ``scripts/clock_wave_fll.py`` wraps both messages. It needs
+t6py, which brings its own environment::
 
-Return codes are ``(uint8_t)-errno``: 234 for ``-EINVAL``, 243 for ``-EACCES``
-(a write to FLL_STATUS_0). ``-ENOTSUP`` depends on the libc's errno value, so
-treat any other non-zero value as a refusal rather than matching on a number.
+   cd <syseng>/src/t6ifc/t6py && source bin/venv-activate my-env
+   python <tt-system-firmware>/scripts/clock_wave_fll.py clock-wave get
+   python <tt-system-firmware>/scripts/clock_wave_fll.py fll dump
+   python <tt-system-firmware>/scripts/clock_wave_fll.py fll set --index 1 \
+       --value 0x000F0000 --mask 0xFFFF0000
+
+.. note::
+   The sub-operation lives in word 0 bits [15:8], so word 0 is
+   ``msg_id | (op << 8)``. Two host utilities cannot express that and reach
+   only op 0:
+
+   * t6py's ``scripts/tensix_sm/smc/msg.py`` parses ``--msg-id`` as an 8-bit
+     value. Its underlying ``msg_queue.send_message()`` has no such limit and
+     takes the full word, which is what the script above calls.
+   * ``pyluwen``'s two-argument ``arc_msg(msg, arg0, arg1)`` reaches only words
+     1 and 2 and returns no full response buffer. Some builds have no
+     ``arc_msg_buf`` at all, so do not rely on it.
+
+Return codes are ``(uint8_t)-errno``, which truncates: 234 for ``-EINVAL``,
+243 for ``-EACCES`` (a write to FLL_STATUS_0), and 122 for ``-ENOTSUP`` on the
+current toolchain. 122 is below 128 and so does not read back as a negative
+number at all, and the value depends on the libc's ``ENOTSUP``; treat any
+non-zero status as a refusal rather than matching on a number.
 
 Unit tests
 ==========
