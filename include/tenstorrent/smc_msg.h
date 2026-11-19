@@ -64,6 +64,9 @@ enum tt_smc_msg {
 	/** @brief @ref i2c_message_rqst "I2C message request" */
 	TT_SMC_MSG_I2C_MESSAGE = 0x1E,
 
+	/** @brief @ref clock_wave_rqst "AICLK clock wave configuration request" */
+	TT_SMC_MSG_CLOCK_WAVE = 0x1F,
+
 	/** @brief @ref reinit_tensix_rqst "Reinitialize Tensix request" */
 	TT_SMC_MSG_REINIT_TENSIX = 0x20,
 
@@ -75,6 +78,9 @@ enum tt_smc_msg {
 
 	/** @brief @ref set_asic_host_fmax_rqst "Set ASIC fmax request" */
 	TT_SMC_MSG_SET_ASIC_HOST_FMAX = 0x23,
+
+	/** @brief @ref fll_droop_rqst "FLL droop detector (clock stretcher) request" */
+	TT_SMC_MSG_FLL_DROOP = 0x24,
 
 	/** @brief @ref get_freq_curve_from_voltage_rqst "Frequency Curve from Voltage Request"*/
 	TT_SMC_MSG_GET_FREQ_CURVE_FROM_VOLTAGE = 0x30,

@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include <zephyr/sys/iterable_sections.h>
+#include <zephyr/sys/util.h>
 
 #define NUM_MSG_QUEUES         4
 #define MSG_QUEUE_SIZE         4
@@ -70,6 +71,61 @@ enum counter_cmd {
 	COUNTER_CMD_CLEAR,
 	/** @brief Set the frozen bitmask; frozen counters stop counting */
 	COUNTER_CMD_FREEZE,
+};
+
+/** @brief Operations for @ref TT_SMC_MSG_CLOCK_WAVE */
+enum clock_wave_op {
+	/** @brief Read back CLOCK_WAVE_CNTL and CLOCK_WAVE_CONTROL_MODE_0..3 */
+	CLOCK_WAVE_OP_GET = 0,
+	/** @brief Program the row modes and/or the AICLK distribution scheme */
+	CLOCK_WAVE_OP_APPLY = 1,
+};
+
+/** @brief Flags for @ref CLOCK_WAVE_OP_APPLY (@ref clock_wave_rqst::flags)
+ *
+ * @details Both actions are performed when flags is zero. Each flag suppresses
+ *          one of them. Suppressing both makes APPLY equivalent to GET except
+ *          that AICLK is still briefly gated by the enable-off window.
+ */
+enum clock_wave_apply_flags {
+	/** @brief Leave CLOCK_WAVE_CONTROL_MODE_0..3 untouched */
+	CLOCK_WAVE_FLAG_SKIP_MODES = BIT(0),
+	/** @brief Restore the previous CLOCK_WAVE_CNTL instead of applying scheme */
+	CLOCK_WAVE_FLAG_SKIP_SCHEME = BIT(1),
+};
+
+/** @brief Operations for @ref TT_SMC_MSG_FLL_DROOP */
+enum fll_droop_op {
+	/** @brief Read one FLL register by index */
+	FLL_DROOP_OP_GET = 0,
+	/** @brief Read a window of up to 7 consecutive FLL_CNTL registers */
+	FLL_DROOP_OP_DUMP = 1,
+	/** @brief Read-modify-write one FLL_CNTL register */
+	FLL_DROOP_OP_SET = 2,
+	/** @brief Assert one or more force/manual trigger bits, wait, then deassert */
+	FLL_DROOP_OP_PULSE = 3,
+	/** @brief Average a burst of RO counter samples from FLL_STATUS_0 */
+	FLL_DROOP_OP_RO_COUNT = 4,
+	/** @brief Pulse FLL_CNTL_3[0] dd_force_sample_nominal_vdd */
+	FLL_DROOP_OP_SAMPLE_NOMINAL = 5,
+};
+
+/** @brief Trigger bits for @ref FLL_DROOP_OP_PULSE (@ref fll_droop_rqst::arg0)
+ *
+ * @details These drive the droop/spike response without a real supply event,
+ *          which is the intended first bring-up test of the detector.
+ */
+enum fll_droop_trigger {
+	/** @brief FLL_CNTL_0[5] force_droop_detect */
+	FLL_DROOP_TRIGGER_DROOP = BIT(0),
+	/** @brief FLL_CNTL_0[13] force_droop2_detect */
+	FLL_DROOP_TRIGGER_DROOP2 = BIT(1),
+	/** @brief FLL_CNTL_0[7] force_spike_detect */
+	FLL_DROOP_TRIGGER_SPIKE = BIT(2),
+	/** @brief FLL_CNTL_0[6] manual_spike */
+	FLL_DROOP_TRIGGER_MANUAL_SPIKE = BIT(3),
+	/** @brief FLL_CNTL_9[18] manual_droop */
+	FLL_DROOP_TRIGGER_MANUAL_DROOP = BIT(4),
 };
 
 /** @brief Available counter banks */
@@ -347,6 +403,106 @@ struct switch_clk_scheme_rqst {
 
 	/** @brief @ref tt_clk_scheme "Clock scheme" to switch to*/
 	uint32_t scheme;
+};
+
+/** @brief Host request to inspect or configure the AICLK clock wave
+ * @details Messages of this type are processed by @ref clock_wave_handler.
+ *
+ * This covers both layers of the clock wave configuration:
+ *   - pll_cntl_wrapper.CLOCK_WAVE_CNTL, which selects zero-skew vs mesh, and
+ *   - reset_unit.CLOCK_WAVE_CONTROL_MODE_0..3, which enable and configure the
+ *     retimer per NOC row and per direction.
+ *
+ * @ref TT_SMC_MSG_SWITCH_CLK_SCHEME only touches the first layer, and every
+ * row's retimer is disabled out of reset, so selecting the mesh mux on its own
+ * has no observable effect.
+ *
+ * The whole sequence runs on the ARC (which is clocked by ARCCLK, not AICLK),
+ * so it is safe in a way that a host-side register write over the NOC is not.
+ *
+ * Response layout:
+ *   - data[0]: return code
+ *   - data[1]: CLOCK_WAVE_CNTL after the operation
+ *   - data[2..5]: CLOCK_WAVE_CONTROL_MODE_0..3 after the operation
+ */
+struct clock_wave_rqst {
+	/** @brief The command code corresponding to @ref TT_SMC_MSG_CLOCK_WAVE */
+	uint8_t command_code;
+
+	/** @brief The operation to perform, of type @ref clock_wave_op */
+	uint8_t op;
+
+	/** @brief Two bytes of padding */
+	uint8_t pad[2];
+
+	/** @brief @ref tt_clk_scheme "Clock scheme" to select; APPLY only */
+	uint32_t scheme;
+
+	/** @brief CLOCK_WAVE_CONTROL_MODE_0..3 to program; APPLY only
+	 *
+	 * @details Each register holds one byte per NOC row: mode[0] covers rows
+	 *          0-3, mode[1] rows 4-7, mode[2] rows 8-11, and mode[3] holds
+	 *          row 12 in its low byte with the upper three bytes reserved.
+	 *          Within a row byte: [0] s_dis, [2:1] s_mode, [4] n_dis,
+	 *          [6:5] n_mode. Bits 3 and 7 are reserved and must be zero.
+	 */
+	uint32_t mode[4];
+
+	/** @brief Bitmask of @ref clock_wave_apply_flags; APPLY only */
+	uint32_t flags;
+};
+
+/** @brief Host request to inspect or configure the FLL droop detector
+ * @details Messages of this type are processed by @ref fll_droop_handler.
+ *
+ * The droop detector (clock stretcher) lives in pll_cntl_wrapper at
+ * FLL_CNTL_0..9. It is disabled out of reset and no firmware configures it,
+ * so every field reads back as zero on a stock part.
+ *
+ * Register indices follow the offset: index n is at 0x80020004 + 4 * n.
+ * Indices 0-5, 8 and 9 are the FLL_CNTL registers and are read/write. Index 6
+ * is FLL_STATUS_0, the RO counter debug readout, which is read-only and whose
+ * reads consume samples. Index 7 (offset 0x020) is not in the a0 register map;
+ * whether it exists in silicon is unknown, so this interface refuses to touch
+ * it rather than risking a bus error.
+ *
+ * Response layout:
+ *   - data[0]: return code
+ *   - GET:   data[1] value, data[2] register address
+ *   - DUMP:  data[1..7] up to 7 consecutive FLL_CNTL registers from arg0
+ *   - SET:   data[1] value after the write, data[2] value before the write
+ *   - PULSE: data[1] FLL_CNTL_0 after deassert, data[2] FLL_CNTL_9 after deassert
+ *   - RO_COUNT: data[1] mean, data[2] min, data[3] max, data[4] samples
+ *   - SAMPLE_NOMINAL: data[1] FLL_CNTL_3 after the pulse
+ */
+struct fll_droop_rqst {
+	/** @brief The command code corresponding to @ref TT_SMC_MSG_FLL_DROOP */
+	uint8_t command_code;
+
+	/** @brief The operation to perform, of type @ref fll_droop_op */
+	uint8_t op;
+
+	/** @brief Two bytes of padding */
+	uint8_t pad[2];
+
+	/** @brief GET: FLL register index (0-6, 8, 9).
+	 *         SET: FLL_CNTL register index (0-5, 8, 9).
+	 *         DUMP: start index into the FLL_CNTL register list.
+	 *         PULSE: bitmask of @ref fll_droop_trigger.
+	 *         RO_COUNT: number of FLL_STATUS_0 reads to average, 0 for the
+	 *         default of 32. Each read yields two samples.
+	 */
+	uint32_t arg0;
+
+	/** @brief SET: the value to write.
+	 *         PULSE: how long to hold the trigger, in REFCLK cycles.
+	 *         RO_COUNT: number of reads to discard first, 0 for the default
+	 *         of 10.
+	 */
+	uint32_t arg1;
+
+	/** @brief SET: bitmask of which bits of arg1 to apply. Zero means all 32. */
+	uint32_t arg2;
 };
 
 /** @brief Host request to get frequency curve from voltage
@@ -1059,6 +1215,12 @@ union request {
 
 	/** @brief A switch clock scheme request */
 	struct switch_clk_scheme_rqst switch_clk_scheme;
+
+	/** @brief A clock wave configuration request */
+	struct clock_wave_rqst clock_wave;
+
+	/** @brief An FLL droop detector request */
+	struct fll_droop_rqst fll_droop;
 
 	/** @brief A get frequency curve from voltage request */
 	struct get_freq_curve_from_voltage_rqst get_freq_curve_from_voltage;

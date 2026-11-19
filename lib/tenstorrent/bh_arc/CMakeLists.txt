@@ -76,6 +76,7 @@ if(NOT CONFIG_TT_SMC_RECOVERY)
     dvfs.c
     eth.c
     fan_ctrl.c
+    fll.c
     functional_efuse.c
     gddr.c
     gddr_cal.c
