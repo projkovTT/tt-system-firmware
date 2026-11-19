@@ -210,8 +210,13 @@ BUILD_ASSERT(offsetof(struct fll_cal_blob, crc) % 4 == 0, "crc coverage must be 
 /* tt-boot-fs tag, zero-padded to the tag size. */
 static const uint8_t kFllCalTag[TT_BOOT_FS_IMAGE_TAG_SIZE] = {'c', 'l', 'k', 's', 't', 'r'};
 
-/* Absolute SPI address of the reserved calibration partition's data region. */
-#define FLL_CAL_SPI_ADDR FIXED_PARTITION_OFFSET(clkstr)
+/* Absolute SPI address of the reserved calibration partition's data region.
+ *
+ * PARTITION_OFFSET(), not FIXED_PARTITION_OFFSET(): the latter is deprecated in
+ * the current Zephyr and the tests build with -Werror, so it failed the whole
+ * bh_arc suite rather than just warning.
+ */
+#define FLL_CAL_SPI_ADDR PARTITION_OFFSET(clkstr)
 
 /*
  * Apply the static droop-detector configuration.
