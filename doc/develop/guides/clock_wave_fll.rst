@@ -177,6 +177,39 @@ operating point first with ``TT_SMC_MSG_FORCE_VDD`` (0x39) and
 and a hand-set ``dd_fw_nominal_vdd`` are the two ways to own the nominal
 yourself; see the note above on why it has to track VCORE.
 
+Operating point
+---------------
+
+``apply_static_config()`` carries the galaxy starting point for the three fields
+that set how hard and how long the detector stretches:
+
+=================== ======= ==================================================
+Field               Value   Notes
+=================== ======= ==================================================
+``droop_threshold`` 15      RO counts below nominal before droop fires
+``droop_fbdiv_adj`` 5       subtracted from the PLL feedback divider
+``droop_time``      500     stretch duration, in ``ddclk`` periods
+=================== ======= ==================================================
+
+These pair with 10 mV of VF-curve guardband
+(``CLK_STRETCHER_VOLTAGE_MARGIN_MV`` in ``vf_curve.c``): the detector is meant to
+cover the transients that the old process-based margin paid for statically, so
+that margin stays disabled.
+
+Two things are worth knowing before reading results against them:
+
+* The three fields above are retunable at runtime with ``TT_SMC_MSG_FLL_DROOP``
+  (0x24) ``SET``, so a sweep needs no rebuild. The 10 mV margin is build-time
+  only -- there is no margin message, and ``chip_limits.voltage_margin`` from the
+  SPI fw table is deliberately *not* added on the process-VF-curve path, so the
+  total guardband there is exactly 10 mV whatever the board table says.
+* ``vf_curve.c`` is **not** behind ``CONFIG_TT_BH_ARC_CLOCK_STRETCHER``, so the
+  10 mV applies to the stretcher-off image too. That image therefore runs with
+  less static guardband than a stock build and no droop protection, which is a
+  useful baseline but not a safe default.
+
+None of these five numbers has been validated on silicon.
+
 Building and flashing
 =====================
 

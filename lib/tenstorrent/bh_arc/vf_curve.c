@@ -39,6 +39,14 @@
 #define FF_LOW_FREQ_MARGIN_MV  0.0F
 #define FF_HIGH_FREQ_MARGIN_MV 20.0F
 
+/*
+ * Guardband applied on top of the process VF curve while the clock stretcher is
+ * being brought up. The galaxy starting point is 10 mV: the droop detector is
+ * meant to cover the transients that the (0-20 mV) process-based SS/FF margin
+ * used to pay for statically, so that block stays disabled below.
+ */
+#define CLK_STRETCHER_VOLTAGE_MARGIN_MV 10.0F
+
 /* Legacy VF curve coefficients (fallback for missing efuse) */
 #define VF_QUADRATIC_COEFF 0.00031395F
 #define VF_LINEAR_COEFF    -0.43953F
@@ -98,7 +106,17 @@ float VFCurve(float freq_mhz)
 		return voltage_mv + fw_table_voltage_margin_mv;
 	}
 
-	float voltage_margin;
+	/*
+	 * Flat 10 mV, so the total guardband on this path is exactly the galaxy
+	 * starting point whatever the board's fw table happens to say. Note the
+	 * asymmetry with the legacy path above, which still adds the table's
+	 * chip_limits.voltage_margin: that path only runs when PROCESS_RO is
+	 * unfused, and it is not the clock-stretcher experiment path.
+	 *
+	 * The process-based SS/FF margin below is kept commented out for reference.
+	 * Re-enabling it would stack a further 0-20 mV on top of this.
+	 */
+	const float voltage_margin = CLK_STRETCHER_VOLTAGE_MARGIN_MV;
 	/*
 	// Process-based margin is FW-table base voltage margin plus process/frequency delta.
 	if (process_is_ss) {
@@ -114,7 +132,7 @@ float VFCurve(float freq_mhz)
 	float voltage_mv =
 		vf_ro_base + vf_freq_linear * freq_n + VF_COEFF_FREQ_SQ * freq_n * freq_n;
 
-	return voltage_mv;// + voltage_margin;
+	return voltage_mv + voltage_margin;
 }
 
 static uint8_t get_voltage_curve_from_freq_handler(const union request *request,

@@ -215,6 +215,13 @@ static const uint8_t kFllCalTag[TT_BOOT_FS_IMAGE_TAG_SIZE] = {'c', 'l', 'k', 's'
 
 /*
  * Apply the static droop-detector configuration.
+ *
+ * droop_threshold, droop_fbdiv_adj and droop_time are the galaxy starting point
+ * (threshold 15, fbdiv_adj 5, droop_time 500); they pair with the 10 mV of VF-curve
+ * guardband in CLK_STRETCHER_VOLTAGE_MARGIN_MV (vf_curve.c). These three are a bring-up
+ * starting point, not a validated operating point -- retune them at runtime with
+ * TT_SMC_MSG_FLL_DROOP (0x24) SET rather than rebuilding, then fold the winner back here.
+ * Everything else below is carried over unchanged and has had less thought put into it.
  */
 static void apply_static_config(void)
 {
@@ -235,7 +242,7 @@ static void apply_static_config(void)
 	/* Droop / droop2 thresholds. */
 	FLL_CNTL_1_reg_u cntl1 = {.val = ReadReg(FLL_CNTL_1_REG_ADDR)};
 
-	cntl1.f.droop_threshold = 18;
+	cntl1.f.droop_threshold = 15;
 	cntl1.f.droop2_threshold = 100;
 	WriteReg(FLL_CNTL_1_REG_ADDR, cntl1.val);
 
@@ -244,7 +251,7 @@ static void apply_static_config(void)
 
 	cntl2.f.dd_counter_period = 9;     /* 1 ddclk period */
 	cntl2.f.dd_filt_sample_period = 0; 
-	cntl2.f.droop_time = 1500;         /* in units of ddclk period */
+	cntl2.f.droop_time = 500;          /* in units of ddclk period */
 	WriteReg(FLL_CNTL_2_REG_ADDR, cntl2.val);
 
 	/* Nominal-VDD source, oscillator enable, fbdiv adjust, debug buffer. */
@@ -256,7 +263,7 @@ static void apply_static_config(void)
 	cntl3.f.dd_use_nominal_vdd = 1;
 	cntl3.f.dd_use_fw_nominal_vdd = 0; /* flipped to 1 once we program the fit */
 	cntl3.f.droop_postdiv_adj = 0;
-	cntl3.f.droop_fbdiv_adj = 20;
+	cntl3.f.droop_fbdiv_adj = 5;
 	cntl3.f.dbuf_en = 1;
 	cntl3.f.dd_enable = 1;
 	WriteReg(FLL_CNTL_3_REG_ADDR, cntl3.val);
