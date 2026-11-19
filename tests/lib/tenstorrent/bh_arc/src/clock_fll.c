@@ -201,12 +201,48 @@ ZTEST(clock_fll, test_clock_wave_get)
 	push_msg();
 
 	zassert_equal(cf_rsp.data[0], 0);
-	zassert_equal(cf_rsp.data[1], CNTL_RESET);
+	zassert_equal(cf_rsp.data[1], TT_CLK_SCHEME_ZERO_SKEW, "decoded scheme, not raw CNTL");
+	zassert_equal(cf_rsp.data[6], CNTL_RESET, "raw CLOCK_WAVE_CNTL");
 	zassert_equal(cf_rsp.data[2], MODE_RESET);
 	zassert_equal(cf_rsp.data[3], MODE_RESET);
 	zassert_equal(cf_rsp.data[4], MODE_RESET);
 	zassert_equal(cf_rsp.data[5], MODE_3_RESET);
 	zassert_equal(wr_count, 0, "GET must not write anything");
+}
+
+/*
+ * Regression: GET used to report the raw CLOCK_WAVE_CNTL in data[1] while APPLY
+ * read a scheme index from the same slot, so feeding a GET response back into an
+ * APPLY silently flipped zero-skew to mesh. Found on a p300a, not by this suite.
+ */
+ZTEST(clock_fll, test_clock_wave_get_apply_round_trip)
+{
+	uint32_t scheme;
+	uint32_t modes[4];
+
+	cf_req.data[0] = TT_SMC_MSG_CLOCK_WAVE | (CLOCK_WAVE_OP_GET << 8);
+	push_msg();
+	zassert_equal(cf_rsp.data[0], 0);
+	scheme = cf_rsp.data[1];
+	for (unsigned int i = 0; i < 4; i++) {
+		modes[i] = cf_rsp.data[2 + i];
+	}
+
+	/* Hand the GET response straight back to APPLY, unmodified. */
+	memset(&cf_req, 0, sizeof(cf_req));
+	cf_req.data[0] = TT_SMC_MSG_CLOCK_WAVE | (CLOCK_WAVE_OP_APPLY << 8);
+	cf_req.clock_wave.scheme = scheme;
+	for (unsigned int i = 0; i < 4; i++) {
+		cf_req.clock_wave.mode[i] = modes[i];
+	}
+	push_msg();
+
+	zassert_equal(cf_rsp.data[0], 0);
+	zassert_equal(cf_rsp.data[1], scheme, "APPLY of a GET must not change the scheme");
+	zassert_equal(cf_rsp.data[6], CNTL_RESET, "raw CNTL must be back where it started");
+	for (unsigned int i = 0; i < 4; i++) {
+		zassert_equal(cf_rsp.data[2 + i], modes[i]);
+	}
 }
 
 ZTEST(clock_fll, test_clock_wave_apply_enables_rows_in_order)
@@ -237,7 +273,8 @@ ZTEST(clock_fll, test_clock_wave_apply_enables_rows_in_order)
 	zassert_equal(wr_trace[5].val, 2, "mesh enable only");
 
 	/* Response reflects the new state. */
-	zassert_equal(cf_rsp.data[1], 2);
+	zassert_equal(cf_rsp.data[1], TT_CLK_SCHEME_CLOCK_WAVE);
+	zassert_equal(cf_rsp.data[6], 2, "raw CLOCK_WAVE_CNTL, mesh enable only");
 	zassert_equal(cf_rsp.data[2], 0);
 	zassert_equal(cf_rsp.data[5], 0);
 }
@@ -249,7 +286,8 @@ ZTEST(clock_fll, test_clock_wave_apply_zero_skew)
 	push_msg();
 
 	zassert_equal(cf_rsp.data[0], 0);
-	zassert_equal(cf_rsp.data[1], 1, "zero skew enable only");
+	zassert_equal(cf_rsp.data[1], TT_CLK_SCHEME_ZERO_SKEW);
+	zassert_equal(cf_rsp.data[6], 1, "zero skew enable only");
 }
 
 ZTEST(clock_fll, test_clock_wave_apply_skip_modes)
@@ -264,7 +302,8 @@ ZTEST(clock_fll, test_clock_wave_apply_skip_modes)
 	zassert_equal(wr_count, 2, "only the two CLOCK_WAVE_CNTL writes");
 	zassert_false(addr_was_written(MODE_ADDR(0)));
 	zassert_equal(shadow_get(MODE_ADDR(0)), MODE_RESET);
-	zassert_equal(cf_rsp.data[1], 2);
+	zassert_equal(cf_rsp.data[1], TT_CLK_SCHEME_CLOCK_WAVE);
+	zassert_equal(cf_rsp.data[6], 2);
 }
 
 ZTEST(clock_fll, test_clock_wave_apply_skip_scheme)
@@ -277,7 +316,8 @@ ZTEST(clock_fll, test_clock_wave_apply_skip_scheme)
 
 	zassert_equal(cf_rsp.data[0], 0);
 	zassert_equal(shadow_get(MODE_ADDR(0)), 0x00000066);
-	zassert_equal(cf_rsp.data[1], CNTL_RESET, "scheme must be left as it was");
+	zassert_equal(cf_rsp.data[1], TT_CLK_SCHEME_ZERO_SKEW, "scheme must be left as it was");
+	zassert_equal(cf_rsp.data[6], CNTL_RESET);
 }
 
 ZTEST(clock_fll, test_clock_wave_apply_rejects_reserved_bits)

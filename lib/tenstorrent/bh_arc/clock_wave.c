@@ -118,12 +118,29 @@ static void switch_clk_scheme(enum tt_clk_scheme clk_scheme)
 	apply_clock_wave_cntl(clk_scheme_to_cntl(clk_scheme), NULL);
 }
 
+/*
+ * CLOCK_WAVE_CNTL is a pair of enables, not a scheme index: 0x1 is zero-skew,
+ * 0x2 is mesh. Report the decoded scheme so that whatever GET returns in
+ * data[1] can be handed straight back to APPLY and mean the same thing; the
+ * raw register is still reported separately for debugging.
+ */
+static uint32_t cntl_to_clk_scheme(uint32_t cntl)
+{
+	PLL_CNTL_WRAPPER_CLOCK_WAVE_CNTL_reg_u clock_wave_cntl = {.val = cntl};
+
+	return clock_wave_cntl.f.aiclk_mesh_enb ? (uint32_t)TT_CLK_SCHEME_CLOCK_WAVE
+						: (uint32_t)TT_CLK_SCHEME_ZERO_SKEW;
+}
+
 static void read_clock_wave_state(struct response *response)
 {
-	response->data[1] = ReadReg(PLL_CNTL_WRAPPER_CLOCK_WAVE_CNTL_REG_ADDR);
+	uint32_t cntl = ReadReg(PLL_CNTL_WRAPPER_CLOCK_WAVE_CNTL_REG_ADDR);
+
+	response->data[1] = cntl_to_clk_scheme(cntl);
 	for (unsigned int i = 0; i < CLOCK_WAVE_CONTROL_MODE_COUNT; i++) {
 		response->data[2 + i] = ReadReg(CLOCK_WAVE_CONTROL_MODE_REG_ADDR(i));
 	}
+	response->data[6] = cntl;
 }
 
 /**

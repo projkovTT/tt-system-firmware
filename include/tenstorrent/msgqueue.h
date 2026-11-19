@@ -422,8 +422,13 @@ struct switch_clk_scheme_rqst {
  *
  * Response layout:
  *   - data[0]: return code
- *   - data[1]: CLOCK_WAVE_CNTL after the operation
+ *   - data[1]: @ref tt_clk_scheme "clock scheme" after the operation. This is
+ *     the scheme *index*, in the same encoding APPLY takes, so a GET response
+ *     can be fed straight back into an APPLY request unchanged.
  *   - data[2..5]: CLOCK_WAVE_CONTROL_MODE_0..3 after the operation
+ *   - data[6]: raw CLOCK_WAVE_CNTL after the operation. Note that this is a
+ *     pair of enables (0x1 zero-skew, 0x2 mesh), not the scheme index, and
+ *     must not be passed back as the scheme.
  */
 struct clock_wave_rqst {
 	/** @brief The command code corresponding to @ref TT_SMC_MSG_CLOCK_WAVE */

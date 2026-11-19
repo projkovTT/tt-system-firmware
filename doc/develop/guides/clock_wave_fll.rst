@@ -63,9 +63,17 @@ Response
 Word   Contents
 ====== ========================================================================
 0      Return code: ``0``, else ``(uint8_t)-errno`` (``-EINVAL`` reads as 234).
-1      ``CLOCK_WAVE_CNTL`` after the operation.
+1      Clock scheme after the operation, in the same 0/1 encoding word 1 of the
+       request takes, so a GET response can be fed straight back into an APPLY.
 2-5    ``CLOCK_WAVE_CONTROL_MODE_0..3`` after the operation.
+6      Raw ``CLOCK_WAVE_CNTL`` after the operation.
 ====== ========================================================================
+
+.. note::
+   Word 6 is a pair of enables -- ``0x1`` zero skew, ``0x2`` mesh -- not the
+   scheme index, and must not be passed back as the scheme. Word 1 is the one
+   that round-trips. On a stock part a GET returns scheme ``0`` with word 6
+   reading ``0x1``.
 
 APPLY always runs the full safe sequence: deassert both enables, wait, program
 the mode registers (unless skipped), assert the requested enable, wait. A
